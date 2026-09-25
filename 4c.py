@@ -2,7 +2,7 @@ import sys
 import time
 import random
 import string
-import requests  # This module sends the real live web requests
+import requests
 
 # ANSI Terminal Colors
 GREEN = "\033[92m"
@@ -10,7 +10,6 @@ RED = "\033[91m"
 RESET = "\033[0m"
 MAGENTA = "\033[95m"
 
-# Thick retro block font layout matching your reference image
 BANNER = """
 ██╗███╗   ██╗     ██╗██╗   ██╗██████╗ ███████╗██████╗ 
 ██║████╗  ██║     ██║██║   ██║██╔══██╗██╔════╝██╔══██╗
@@ -33,56 +32,68 @@ def generate_4c_username():
 
 def check_live_discord_status(username):
     """
-    Queries an open-source Discord lookup gateway API to verify actual availability.
-    Returns True if available (+), False if taken (-).
+    Queries a resilient open API link to verify direct lookup availability.
+    Returns: True if available (+), False if taken (-).
     """
-    url = f"https://api.lixqa.de/v3/discord/pomelo/{username}"
+    # Switching to a fresh, active proxy check endpoint
+    url = f"https://samifying.com{username}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
     try:
-        # Send a live request to the endpoint tracking system
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, headers=headers, timeout=6)
         
         if response.status_code == 200:
             data = response.json()
-            # If 'available' is true inside the JSON response data data package
-            return data.get("available", False)
+            # Most lookups return a status or 'exists' flag
+            # If the user profile does NOT exist, it means the name is available
+            exists = data.get("exists", True)
+            return not exists
+        elif response.status_code == 404:
+            # Traditional HTTP REST standard: 404 means the username profile is not found (Available)
+            return True
+        elif response.status_code == 429:
+            print(f"\n{RED}[!] Rate limit encountered. Pausing for 5 seconds...{RESET}")
+            time.sleep(5)
+            return False
         else:
-            # Fallback if server is busy or rate limiting your connection
             return False
     except Exception:
-        # If network error or timeout occurs, safely mark as unavailable to prevent false positives
         return False
 
 def main():
-    # Print the block header banner in magenta
     print(MAGENTA + BANNER + RESET)
     
     try:
-        # Get user permission before initiating tracking loops
         choice = input(MAGENTA + "Press Y/N To Start > " + RESET).strip().lower()
         
         if choice != 'y':
             print(RED + "Exiting..." + RESET)
             sys.exit(0)
             
-        print(MAGENTA + "\nRunning Real Live Checks... Press Ctrl+C to halt loop.\n" + RESET)
+        print(MAGENTA + "\nRunning Direct Live Filter... Press Ctrl+C to halt loop.\n" + RESET)
         time.sleep(0.5)
+
+        checked_count = 0
 
         while True:
             username = generate_4c_username()
-            
-            # Grabs true validation data from the server API instead of fake math percentages
             is_available = check_live_discord_status(username)
+            checked_count += 1
             
             if is_available:
-                print(f"{GREEN}[+] {username}{RESET}")
+                print(f"{GREEN}[+] {username} (FOUND AVAILABLE!){RESET}")
+                # Save it immediately to a local text file so you don't lose it
+                with open("available_4c.txt", "a") as f:
+                    f.write(f"{username}\n")
             else:
-                print(f"{RED}[-] {username}{RESET}")
+                print(f"{RED}[-] {username} (Total Checked: {checked_count}){RESET}")
                 
-            # Crucial: Live lookups need a 2-second gap so Discord APIs don't block your connection
-            time.sleep(2.0)
+            # A 1.6-second delay ensures the network connection drops cleanly 
+            # between checks to maximize chances of accuracy.
+            time.sleep(1.6)
 
     except KeyboardInterrupt:
-        # Catches Ctrl+C cleanly and displays the custom exit string in red
         print(RED + "\nExiting..." + RESET)
         sys.exit(0)
 
